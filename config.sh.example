@@ -1,0 +1,18 @@
+# Copy to config.sh (git-ignored) and fill in your Sparks. Every value can also be passed in the environment.
+#
+# The Spark that runs rank 0 and the OpenAI/Anthropic API. Use "localhost" when you run these scripts on it.
+HEAD="user@head-address"
+# The second Spark, as Mia's recipe wants it in scripts/local.sh: an ssh target with key-based auth.
+WORKER="user@worker-address"
+# The worker's ConnectX-7 address, when WORKER is reached over another network (the recipe's FABRIC_PEER).
+FABRIC_PEER=""
+# Where the upstream recipe is cloned on HEAD (install.sh clones it there).
+REMOTE_DIR="$HOME/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold"
+# The API listen address and port. The recipe already defaults to 0.0.0.0; keeping it here makes it explicit.
+HOST="0.0.0.0"
+PORT="9101"
+# The served model id and the container name on both Sparks.
+MODEL="GLM-5.3-Flash-EXL3"
+CONTAINER="glm53-flash-tf"
+# 1: stream GLM tool-call arguments as they are written (this repo's patch 0123). 0: the recipe's whole-call deltas.
+STREAM_CALLS="1"

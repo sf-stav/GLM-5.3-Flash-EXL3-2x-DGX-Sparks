@@ -1,0 +1,18 @@
+# Local deployment values (real addresses, ssh targets, paths)
+config.sh
+.env
+
+# Logs and scratch files
+*.log
+*.log.gz
+prepare.log
+start.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

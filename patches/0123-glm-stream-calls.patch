@@ -1,0 +1,52 @@
+# Tool-call streaming (local fix, opt-in): TF_GLM_STREAM_CALLS=1 sends a GLM call's header and argument fragments as they are written, instead of holding each call whole until its </tool_call> (patches 0053/0055). An agent client then sees a large write/edit call arrive continuously rather than in one delta after tens of seconds of silence. A call cut by the token limit is then sent only in part; finish_reason "length" marks it. Default 0 is the recipe's whole-call behavior.
+
+diff --git tensorfold/cuda/reply_text.py tensorfold/cuda/reply_text.py
+--- tensorfold/cuda/reply_text.py
++++ tensorfold/cuda/reply_text.py
+@@ -415,12 +415,25 @@
+     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
++def stream_calls(value: str | None = None) -> bool:
++    """``TF_GLM_STREAM_CALLS``: 1 sends a GLM call's header once its name is written and its arguments' JSON in
++    pieces as they arrive (OpenAI's tool-call streaming, so a large call is not silent while it is generated);
++    0 (the default) holds each call whole until its ``</tool_call>`` (patches 0053/0055)."""
++
++    raw = (os.environ.get("TF_GLM_STREAM_CALLS", "0") if value is None else value).strip() or "0"
++    if raw not in ("0", "1"):
++        raise ValueError(f"TF_GLM_STREAM_CALLS={raw!r}: expected 0 or 1")
++    return raw == "1"
++
++
+ class GlmCallStreamer:
+     """GLM's ``<tool_call>NAME<arg_key>K</arg_key><arg_value>V</arg_value>...</tool_call>`` calls as OpenAI tool-call
+     deltas: each call is followed while it is written (its arguments' JSON built a string value as it arrives and a
+     typed one when whole, joining to what ``parse_tool_calls`` gives) and sent whole, header and arguments in one delta,
+     once its ``</tool_call>`` arrives. A call the reply ends inside (its token limit) is never sent: a client could
+-    store or run its cut arguments.
++    store or run its cut arguments. With ``TF_GLM_STREAM_CALLS=1`` the header and the arguments go out as they are
++    written instead, so a long call streams; a call the token limit cuts is then sent only in part, and its
++    ``finish_reason`` is ``"length"``.
+ 
+     ``feed`` takes the reply's answer so far (text that only grows) and returns the new deltas; ``sent`` counts the
+     calls sent. A block it cannot follow (not GLM's markup, a tool the request did not offer) is skipped and stays
+@@ -437,7 +450,7 @@
+         self.schema: dict[str, Any] = {}               # the current call's parameter schemas
+         self.value_schema: dict[str, Any] | None = None     # the current typed value's schema, None for text
+         self.maybe_null = False                         # a nullable text value that may still be ``null``: held
+-        self.sent = 0                                   # calls sent whole (the last one may still be open)
++        self.sent = 0                                   # calls sent (whole, or by header when streaming them)
+ 
+     def _args(self, out: list[dict[str, Any]], piece: str) -> None:
+         index = len(self.calls) - 1
+@@ -449,6 +462,10 @@
+             out.append({"tool_calls": [{"index": index, "function": {"arguments": piece}}]})
+ 
+     def feed(self, text: str) -> list[dict[str, Any]]:
++        if stream_calls():
++            out = self._follow(text)
++            self.sent = len(self.calls)       # a call whose header went out is streamed; the handler must not resend
++            return out
+         self._follow(text)
+         whole = len(self.calls) - (1 if self.open else 0)
+         out = [{"tool_calls": [{"index": i, "id": c["id"], "type": "function",
