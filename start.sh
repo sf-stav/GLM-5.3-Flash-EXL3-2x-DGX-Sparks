@@ -13,6 +13,8 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-9101}"
 MODEL="${MODEL:-GLM-5.3-Flash-EXL3}"
 STREAM_CALLS="${STREAM_CALLS:-1}"
+VISION="${VISION:-1}"
+VISION_URLS="${VISION_URLS:-0}"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15)
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -39,6 +41,8 @@ Environment (or config.sh):
   PORT=$PORT
   MODEL=$MODEL
   STREAM_CALLS=$STREAM_CALLS
+  VISION=$VISION
+  VISION_URLS=$VISION_URLS
 
 Examples:
   ./start.sh
@@ -75,7 +79,7 @@ if [[ -n "$WORKER" ]]; then
 fi
 
 cmd="cd $(printf '%q' "$REMOTE_DIR") && export PATH=\"\$HOME/.local/bin:\$PATH\" &&"
-envs=("PORT=$PORT" "HOST=$HOST" "TF_GLM_STREAM_CALLS=$stream_calls")
+envs=("PORT=$PORT" "HOST=$HOST" "VISION=$VISION" "VISION_URLS=$VISION_URLS" "TF_GLM_STREAM_CALLS=$stream_calls")
 (( dry )) && envs+=(DRY_RUN=1)
 [[ -n "$context" ]] && envs+=("CONTEXT=$context")
 for e in "${envs[@]}"; do cmd+=" $(printf '%q' "$e")"; done

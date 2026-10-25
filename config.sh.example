@@ -16,3 +16,7 @@ MODEL="GLM-5.3-Flash-EXL3"
 CONTAINER="glm53-flash-tf"
 # 1: stream GLM tool-call arguments as they are written (this repo's patch 0123). 0: the recipe's whole-call deltas.
 STREAM_CALLS="1"
+# 1 (default): rank 0 runs GLM's vision tower for image and video input; 0: text only.
+VISION="1"
+# 1: also fetch public https:// image/video URLs. 0 (default): data URLs only.
+VISION_URLS="0"

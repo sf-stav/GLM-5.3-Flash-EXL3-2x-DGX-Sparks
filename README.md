@@ -186,6 +186,8 @@ Copy `config.sh.example` to `config.sh` (git-ignored). Every value can also be s
 | `MODEL` | `GLM-5.3-Flash-EXL3` | served model id (printed by the wrappers) |
 | `CONTAINER` | `glm53-flash-tf` | container name on both Sparks |
 | `STREAM_CALLS` | `1` | `1`: patch `0123` streaming; `0`: the recipe's whole-call deltas |
+| `VISION` | `1` | `1`: rank 0 runs GLM's vision tower for image and video input; `0`: text only |
+| `VISION_URLS` | `0` | `1`: also fetch public `https://` image/video URLs; `0`: data URLs only |
 
 ## The patch
 
