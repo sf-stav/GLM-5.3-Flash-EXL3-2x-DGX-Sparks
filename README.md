@@ -40,6 +40,56 @@ The wait scales with the size of the call. The 2 s `delta: {}` keep-alives the s
 ignored by most clients, so they are not visible output. Full diagnosis, design and measurements:
 [`docs/streaming-tool-calls.md`](docs/streaming-tool-calls.md).
 
+## Performance
+
+Measured with [VeloBenchmark](https://github.com/sf-stav/VeloBench) 0.3.0 on 2026-10-25 against this deployment: two
+DGX Sparks, `GLM-5.3-Flash-EXL3`, `reasoning_effort: "low"`, the recipe's defaults (TP2, 4-bit dense weights, FP8
+KV, DFlash2 drafts, 4 streams, 1,048,576-token window). The report's model line reads
+`GLM3.1-Flash on 170 · GLM-5.3-Flash-EXL3`; the endpoint under test is the `GLM-5.3-Flash-EXL3` server on the head
+Spark (`192.168.178.170`).
+
+**Single request and concurrency** (code prompts; the single-request run alternates JavaScript and story prose):
+
+| Workload | Requests | Aggregate sustained | Per request | TTFT | ITL p50 | Tokens | Wall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regime switch, JS ⇄ story | 1 | 64.2 tok/s | 64.2 tok/s (p50; p90 74.2, p99 81.4) | p50 0.35 s (p95/p99 353 ms) | 14.3 ms | 2,395 | 37.8 s |
+| Pure code | 2 | 163 tok/s | 81.4 tok/s each | avg 243 ms | 11.8 ms | 4,568 | 28.3 s |
+| Pure code | 4 | 210 tok/s | 52.5 tok/s each (52.3–52.6) | avg 477 ms | 18.4 ms | 9,136 | 44.1 s |
+
+Prefill averaged ~221 tok/s for the single request, ~206 tok/s at 2 concurrent and ~112 tok/s at 4. The report's
+`sustain / peak` stability is 91% / 96% / 96%; its `mean / peak` figures (48% at 2, 42% at 4) reflect the lower
+per-worker rate under concurrency, not dropped requests.
+
+<p align="center">
+  <img src="assets/velobench-analytics-ac6a5acb.png" alt="VeloBenchmark session: one regime-switch request, 64.2 tok/s median decode, 0.35 s TTFT" width="90%">
+</p>
+<p align="center"><sub>VeloBenchmark session <code>ac6a5acb</code>: one request alternating JavaScript and story prose.
+64.2 tok/s median decode, 0.35 s TTFT, 2,395 tokens.</sub></p>
+
+**Context growth** (the same conversation extended; prefill and decode as the input grows):
+
+| Step (as reported) | Input tokens | Output tokens | TTFT | Prefill tok/s | Decode median | Decode min / max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1K Context | 1,036 | 270 | 833 ms | 1,244 | 46.2 tok/s | 25.4 / 49.8 |
+| 2K Context | 3,322 | 425 | 3.96 s | 839 | 43.3 tok/s | 30.5 / 48.9 |
+| 4K Context | 8,094 | 125 | 4.76 s | 1,701 | 35.6 tok/s | 27.1 / 39.5 |
+| 8K Context | 16,930 | 179 | 9.92 s | 1,707 | 39.5 tok/s | 25.8 / 48.9 |
+| 16K Context | 34,277 | 226 | 19.18 s | 1,787 | 36.9 tok/s | 25.5 / 46.9 |
+
+The step names are the report's; the measured input sizes are in the second column (the last step is ~34k tokens).
+The session's prefill throughput averaged ~1,456 tok/s overall, and its median decode was 42.5 tok/s across the five
+turns.
+
+<p align="center">
+  <img src="assets/velobench-analytics-9db74adf.png" alt="VeloBenchmark generation-performance session: 83.8 tok/s median decode, 0.24 s TTFT" width="90%">
+</p>
+<p align="center"><sub>A separate single-turn generation run from the same deployment: 83.8 tok/s median decode,
+0.24 s TTFT, 2,126 tokens, 99% sustain/peak.</sub></p>
+
+These are single-session VeloBenchmark figures, not a controlled comparison with Mia's published sparkDash
+measurements (different harness, prompts, clock cap and load); compare them within this page rather than across the
+two. The images are the benchmark's GUI reports; the tables above are their text variants.
+
 ## Requirements
 
 The same as Mia's recipe:
